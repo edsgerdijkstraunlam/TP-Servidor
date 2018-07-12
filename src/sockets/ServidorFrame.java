@@ -30,14 +30,20 @@ public class ServidorFrame extends JFrame implements Runnable {
 
 	private JPanel contentPane;
 	private DataInputStream entrada;
-//	private ObjectInputStream entrada;
+	// private ObjectInputStream entrada;
 	private ServerSocket server; // Prepara un puente para que se conecten otros sockets
 	private Socket socket; // Prepara un puente para conectarse a un serverSocket
 	private int puertoClienteAServidor = 9998; // El puerto por el que acceden los datos
 	private int puertoServidorACliente = 9996;
 	private int puertoParaConexionesActivas = 9994;
+	private int puertoParaIngresoDeUsuarios = 9890;
+	private int puertoParaValidacionDeUsuarios = 9894;
+	
 	private ArrayList<PaqueteEnvio> listaDeSockets;
 	private ArrayList<Integer> tiempoDeSockets;
+	private ArrayList<String> usuariosRegistrados;
+	private ArrayList<String> passRegistrados;
+	
 	private JComboBox<String> cb;
 	private JTextArea textArea;
 
@@ -48,19 +54,76 @@ public class ServidorFrame extends JFrame implements Runnable {
 	public ServidorFrame() {
 		listaDeSockets = new ArrayList<PaqueteEnvio>();
 		tiempoDeSockets = new ArrayList<Integer>();
+		usuariosRegistrados= new ArrayList<String>();
+		passRegistrados= new ArrayList<String>();
+		
+		usuariosRegistrados.add("pepe");
+		usuariosRegistrados.add("juan");
+		passRegistrados.add("1234");
+		passRegistrados.add("456");
+		
+		
+		
+		
+		
+		new Thread() {
+			public void run() {
+
+				Gson gson = new Gson();
+				while (true) {
+					try {
+						
+						ServerSocket ser = new ServerSocket(puertoParaIngresoDeUsuarios);
+						Socket conex = ser.accept();
+						DataInputStream in = new DataInputStream(conex.getInputStream());
+						String json = in.readUTF();
+						PaqueteEnvio paq = gson.fromJson(json, PaqueteEnvio.class);
+						conex.close();
+						boolean encontrado=false;
+						int i=0;
+						conex= new Socket(paq.getIp(),puertoParaValidacionDeUsuarios);
+
+						DataOutputStream o= new DataOutputStream(conex.getOutputStream());
+						for (String user : usuariosRegistrados) {
+							if(user.equals(paq.getNick())) {
+								
+								
+								if(passRegistrados.get(i).equals(paq.getContraseña())) {
+									o.writeUTF("CONNECT");
+								}
+								else {
+									o.writeUTF("NOTPASS");
+								}
+								encontrado=true;
+								break;
+							}
+							i++;
+							
+						}
+						if(!encontrado) {
+							o.writeUTF("NOTFOUND");
+						}
+						conex.close();
+						ser.close();
+					} catch (IOException e) {
+					}
+					
+				}
+			}
+		}.start();
 
 		new Thread() {
 
 			public void run() {
 
-				Gson gson= new Gson();
+				Gson gson = new Gson();
 				while (true) {
 					try {
 						hilo1Work = false;
 						ServerSocket ser = new ServerSocket(puertoParaConexionesActivas);
 						Socket conex = ser.accept();
 						DataInputStream in = new DataInputStream(conex.getInputStream());
-						String json= in.readUTF();
+						String json = in.readUTF();
 						PaqueteEnvio paq = gson.fromJson(json, PaqueteEnvio.class);
 						// String nick = im.readUTF();
 						while (hilo2Work)
@@ -87,7 +150,7 @@ public class ServidorFrame extends JFrame implements Runnable {
 						}
 
 						ser.close();
-					} catch (IOException | InterruptedException  e2) {
+					} catch (IOException | InterruptedException e2) {
 						e2.printStackTrace();
 					}
 
@@ -181,37 +244,38 @@ public class ServidorFrame extends JFrame implements Runnable {
 			try {
 
 				socket = server.accept(); // Espera a que alguien se quiera conectar y lo guarda
-				// String direccion = socket.getInetAddress().toString().replace("/", "");
-				// textArea.append("Conectado usuario: " + direccion + "\n");
 
 				entrada = new DataInputStream(socket.getInputStream());
 
-				Gson gson=new Gson();
-				String json=entrada.readUTF();
+				Gson gson = new Gson();
+				String json = entrada.readUTF();
 				PaqueteEnvio paquete = gson.fromJson(json, PaqueteEnvio.class);
 
-			//	ArrayList<PaqueteEnvio> users = listaDeSockets;
+				// ArrayList<PaqueteEnvio> users = listaDeSockets;
 
 				ArrayList<PaqueteEnvio> users = new ArrayList<PaqueteEnvio>();
 				users.addAll(listaDeSockets);
-				
-				
+
 				Socket s;
-				int cant= users.size();
-				for (int i=0;i <cant;i++) {
-					PaqueteEnvio usuario= users.get(i);
+				int cant = users.size();
+				for (int i = 0; i < cant; i++) {
+					PaqueteEnvio usuario = users.get(i);
 					if (!paquete.getNick().equals(usuario.getNick())) {
-						
-						s = new Socket(usuario.getIp(), puertoServidorACliente);
-						DataOutputStream o = new DataOutputStream(s.getOutputStream());
-						json=gson.toJson(paquete);
-						o.writeUTF(json);
-						s.close();
+
+						try {
+							s = new Socket(usuario.getIp(), puertoServidorACliente);
+							DataOutputStream o = new DataOutputStream(s.getOutputStream());
+							json = gson.toJson(paquete);
+							o.writeUTF(json);
+
+							s.close();
+						} catch (IOException e1) {
+						}
 					}
 				}
 
 				textArea.append(paquete.getNick() + "---->" + paquete.getMensaje() + "--" + paquete.getIp() + "\n");
-				
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			} finally {
