@@ -9,7 +9,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 
-import dijkstra_paqueteEnvio.PaqueteEnvio;
+import dijkstra_paqueteEnvio.Pedido;
+import dijkstra_paqueteEnvio.Usuario;
 
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -38,12 +39,12 @@ public class ServidorFrame extends JFrame implements Runnable {
 	private int puertoParaConexionesActivas = 9994;
 	private int puertoParaIngresoDeUsuarios = 9890;
 	private int puertoParaValidacionDeUsuarios = 9894;
-	
-	private ArrayList<PaqueteEnvio> listaDeSockets;
+
+	private ArrayList<Usuario> listaDeSockets;
 	private ArrayList<Integer> tiempoDeSockets;
 	private ArrayList<String> usuariosRegistrados;
 	private ArrayList<String> passRegistrados;
-	
+
 	private JComboBox<String> cb;
 	private JTextArea textArea;
 
@@ -52,62 +53,78 @@ public class ServidorFrame extends JFrame implements Runnable {
 	private boolean hilo2Work = false;
 
 	public ServidorFrame() {
-		listaDeSockets = new ArrayList<PaqueteEnvio>();
+		listaDeSockets = new ArrayList<Usuario>();
 		tiempoDeSockets = new ArrayList<Integer>();
-		usuariosRegistrados= new ArrayList<String>();
-		passRegistrados= new ArrayList<String>();
-		
+		usuariosRegistrados = new ArrayList<String>();
+		passRegistrados = new ArrayList<String>();
+
 		usuariosRegistrados.add("pepe");
 		usuariosRegistrados.add("juan");
 		passRegistrados.add("1234");
 		passRegistrados.add("456");
-		
-		
-		
-		
-		
+
 		new Thread() {
 			public void run() {
 
 				Gson gson = new Gson();
 				while (true) {
 					try {
-						
+
 						ServerSocket ser = new ServerSocket(puertoParaIngresoDeUsuarios);
 						Socket conex = ser.accept();
 						DataInputStream in = new DataInputStream(conex.getInputStream());
 						String json = in.readUTF();
-						PaqueteEnvio paq = gson.fromJson(json, PaqueteEnvio.class);
+						Pedido paq = gson.fromJson(json, Pedido.class);
 						conex.close();
-						boolean encontrado=false;
-						int i=0;
-						conex= new Socket(paq.getIp(),puertoParaValidacionDeUsuarios);
+						boolean encontrado = false;
+						int i = 0;
+						conex = new Socket(paq.getIp(), puertoParaValidacionDeUsuarios);
 
-						DataOutputStream o= new DataOutputStream(conex.getOutputStream());
-						for (String user : usuariosRegistrados) {
-							if(user.equals(paq.getNick())) {
-								
-								
-								if(passRegistrados.get(i).equals(paq.getContraseña())) {
-									o.writeUTF("CONNECT");
+						DataOutputStream o = new DataOutputStream(conex.getOutputStream());
+						if (paq.getPedido() == (Pedido.ingresar)) {
+							for (String user : usuariosRegistrados) {
+								if (user.equals(paq.getUsuario())) {
+
+									if (passRegistrados.get(i).equals(paq.getPassword())) {
+										o.writeUTF("CONNECT");
+									} else {
+										o.writeUTF("NOTPASS");
+									}
+									encontrado = true;
+									break;
 								}
-								else {
-									o.writeUTF("NOTPASS");
-								}
-								encontrado=true;
-								break;
+								i++;
+
 							}
-							i++;
-							
+							if (!encontrado) {
+								o.writeUTF("NOTFOUND");
+							}
 						}
-						if(!encontrado) {
-							o.writeUTF("NOTFOUND");
+						
+						else if (paq.getPedido()==Pedido.nuevo) {
+							for (String user : usuariosRegistrados) {
+								if (user.equals(paq.getUsuario())) {
+
+									o.writeUTF("EXIST");
+
+									encontrado = true;
+									break;
+								}
+								i++;
+
+							}
+
+							if (!encontrado) {
+								usuariosRegistrados.add(paq.getUsuario());
+								passRegistrados.add(paq.getPassword());
+								o.writeUTF("ADD");
+							}
 						}
 						conex.close();
 						ser.close();
 					} catch (IOException e) {
 					}
-					
+
 				}
 			}
 		}.start();
@@ -124,7 +141,7 @@ public class ServidorFrame extends JFrame implements Runnable {
 						Socket conex = ser.accept();
 						DataInputStream in = new DataInputStream(conex.getInputStream());
 						String json = in.readUTF();
-						PaqueteEnvio paq = gson.fromJson(json, PaqueteEnvio.class);
+						Usuario paq = gson.fromJson(json, Usuario.class);
 						// String nick = im.readUTF();
 						while (hilo2Work)
 							Thread.sleep(200);
@@ -132,7 +149,7 @@ public class ServidorFrame extends JFrame implements Runnable {
 						int cantElem = listaDeSockets.size();
 						boolean find = false;
 						for (int i = 0; i < cantElem; i++) {
-							PaqueteEnvio sock = listaDeSockets.get(i);
+							Usuario sock = listaDeSockets.get(i);
 							if (sock.getNick().equals(paq.getNick())) {
 								find = true;
 								tiempoDeSockets.set(i, 3);
@@ -249,17 +266,17 @@ public class ServidorFrame extends JFrame implements Runnable {
 
 				Gson gson = new Gson();
 				String json = entrada.readUTF();
-				PaqueteEnvio paquete = gson.fromJson(json, PaqueteEnvio.class);
+				Usuario paquete = gson.fromJson(json, Usuario.class);
 
 				// ArrayList<PaqueteEnvio> users = listaDeSockets;
 
-				ArrayList<PaqueteEnvio> users = new ArrayList<PaqueteEnvio>();
+				ArrayList<Usuario> users = new ArrayList<Usuario>();
 				users.addAll(listaDeSockets);
 
 				Socket s;
 				int cant = users.size();
 				for (int i = 0; i < cant; i++) {
-					PaqueteEnvio usuario = users.get(i);
+					Usuario usuario = users.get(i);
 					if (!paquete.getNick().equals(usuario.getNick())) {
 
 						try {
