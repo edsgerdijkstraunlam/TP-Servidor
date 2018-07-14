@@ -1,10 +1,11 @@
-package sockets;
+package dijkstra_unlam.Servidor;
 
 import java.awt.Dimension;
 import java.awt.event.ComponentEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.BindException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ import login.Usuario;
 
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
@@ -81,7 +83,7 @@ public class ServidorFrame extends JFrame implements Runnable {
 
 						}
 
-					} catch (IOException |NullPointerException e) {
+					} catch (IOException | NullPointerException e) {
 					}
 
 				}
@@ -171,7 +173,6 @@ public class ServidorFrame extends JFrame implements Runnable {
 								o.writeUTF("ADD");
 							}
 						} else if (paq.getPedido() == Pedido.crearSala) {
-							System.out.println("sala " + paq.getSala());
 							listaDeSalas.add(paq.getSala());
 
 						}
@@ -208,6 +209,8 @@ public class ServidorFrame extends JFrame implements Runnable {
 							if (sock.getNick().equals(paq.getNick())) {
 								find = true;
 								tiempoDeSockets.set(i, 3);
+								if (!sock.getSala().equals(paq.getSala()))
+									listaDeSockets.get(i).setSala(paq.getSala());
 								break;
 							}
 
@@ -222,7 +225,13 @@ public class ServidorFrame extends JFrame implements Runnable {
 						}
 
 						ser.close();
+					} catch (BindException e) {
+						JOptionPane.showMessageDialog(null,
+								"El punto de acceso se encuentra ocupado. Cierre todas las ventanas de esta aplicacion",
+								"Error", JOptionPane.ERROR_MESSAGE);
+						System.exit(ERROR);
 					} catch (IOException | InterruptedException e2) {
+
 						e2.printStackTrace();
 					}
 
@@ -306,7 +315,10 @@ public class ServidorFrame extends JFrame implements Runnable {
 		try {
 			server = new ServerSocket(puertoClienteAServidor);
 		} catch (IOException e1) {
-			e1.printStackTrace();
+			JOptionPane.showMessageDialog(null,
+					"El punto de acceso se encuentra ocupado. Cierre todas las ventanas de esta aplicacion", "Error",
+					JOptionPane.ERROR_MESSAGE);
+			return;
 		} // Intenta crear el puente del lado del servidor
 
 		textArea.setText("Esperando Conexion...\n");
@@ -332,7 +344,8 @@ public class ServidorFrame extends JFrame implements Runnable {
 				int cant = users.size();
 				for (int i = 0; i < cant; i++) {
 					Usuarios usuario = users.get(i);
-					if (!paquete.getNick().equals(usuario.getNick())) {
+					if ((!paquete.getNick().equals(usuario.getNick()) && paquete.getSala().equals(usuario.getSala()))
+							|| (paquete.getNotificarA() != null && paquete.getNotificarA().equals(usuario.getNick()))) {
 
 						try {
 							s = new Socket(usuario.getIp(), puertoServidorACliente);
